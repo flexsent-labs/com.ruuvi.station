@@ -9,7 +9,7 @@ import android.util.Log;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.ruuvi.station.gateway.Http;
+import com.ruuvi.station.bluetooth.gateway.BluetoothTagGateway;
 import com.ruuvi.station.model.LeScanResult;
 import com.ruuvi.station.model.RuuviTag;
 import com.ruuvi.station.model.TagSensorReading;
@@ -32,19 +32,33 @@ public class RuuviRangeNotifier implements RangeNotifier {
     private static final String TAG = "RuuviRangeNotifier";
     private String from;
     private Context context;
-    private Location tagLocation;
+    public static Location tagLocation;
 
     private Map<String, Long> lastLogged = null;
-    public boolean gatewayOn = false;
+    public static boolean gatewayOn = false;
     private FusedLocationProviderClient mFusedLocationClient;
 
     private long last = 0;
+    private BluetoothTagGateway.OnTagsFoundListener onTagsFoundListener;
 
-    public RuuviRangeNotifier(Context context, String from) {
+    public RuuviRangeNotifier(
+            Context context,
+            String from,
+            BluetoothTagGateway.OnTagsFoundListener onTagsFoundListener
+    ) {
+        this.onTagsFoundListener = onTagsFoundListener;
         Log.d(TAG, "Setting up range notifier from " + from);
         this.context = context;
         this.from = from;
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+    }
+
+    public boolean isGatewayOn() {
+        return gatewayOn;
+    }
+
+    public void setGatewayOn(boolean gatewayOn) {
+        this.gatewayOn = gatewayOn;
     }
 
     private void updateLocation() {
@@ -67,22 +81,31 @@ public class RuuviRangeNotifier implements RangeNotifier {
         }
         last = now;
         if (gatewayOn) updateLocation();
-        List<RuuviTag> tags = new ArrayList<>();
+        List<RuuviTag> favoriteTags = new ArrayList<>();
+        List<RuuviTag> allTags = new ArrayList<>();
         Log.d(TAG, from + " " + " found " + beacons.size());
         foundBeacon: for (Beacon beacon : beacons) {
             // the same tag can appear multiple times
-            for (RuuviTag tag : tags) {
+            for (RuuviTag tag : favoriteTags) {
                 if (tag.id.equals(beacon.getBluetoothAddress())) continue foundBeacon;
             }
             RuuviTag tag = LeScanResult.fromAltbeacon(context, beacon);
             if (tag != null) {
-                saveReading(tag);
-                if (tag.favorite) tags.add(tag);
+//                saveReading(tag);
+                allTags.add(tag);
+                if (tag.favorite) favoriteTags.add(tag);
             }
         }
-        if (tags.size() > 0 && gatewayOn) Http.post(tags, tagLocation, context);
 
-        TagSensorReading.removeOlderThan(24);
+        onTagsFoundListener.onFoundTags(allTags);
+//
+//        for (RuuviTag tag : favoriteTags) {
+//            saveReading(tag);
+//        }
+//
+//        if (favoriteTags.size() > 0 && gatewayOn) Http.post(favoriteTags, tagLocation, context);
+//
+//        TagSensorReading.removeOlderThan(24);
     }
 
     private void saveReading(RuuviTag ruuviTag) {

@@ -19,6 +19,7 @@ import android.widget.Toast;
 
 import com.ruuvi.station.R;
 import com.ruuvi.station.RuuviScannerApplication;
+import com.ruuvi.station.bluetooth.gateway.listener.DefaultOnTagFoundListener;
 import com.ruuvi.station.feature.StartupActivity;
 import com.ruuvi.station.util.BackgroundScanModes;
 import com.ruuvi.station.util.Constants;
@@ -63,7 +64,7 @@ public class AltBeaconScannerForegroundService extends Service implements Beacon
         Foreground.init(getApplication());
         Foreground.get().addListener(listener);
 
-        ruuviRangeNotifier = new RuuviRangeNotifier(getApplicationContext(), "AltBeaconFGScannerService");
+        ruuviRangeNotifier = new RuuviRangeNotifier(getApplicationContext(), "AltBeaconFGScannerService", new DefaultOnTagFoundListener(this));
         region = new Region("com.ruuvi.station.leRegion", null, null, null);
         startFG();
         beaconManager.bind(this);
