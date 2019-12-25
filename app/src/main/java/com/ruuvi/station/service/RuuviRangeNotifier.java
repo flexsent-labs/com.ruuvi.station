@@ -1,48 +1,69 @@
 package com.ruuvi.station.service;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.raizlabs.android.dbflow.data.Blob;
-import com.ruuvi.station.bluetooth.gateway.BluetoothTagGateway;
+import com.ruuvi.station.bluetooth.model.LeScanResult;
 import com.ruuvi.station.decoder.DecodeFormat2and4;
 import com.ruuvi.station.decoder.DecodeFormat3;
 import com.ruuvi.station.decoder.DecodeFormat5;
 import com.ruuvi.station.decoder.RuuviTagDecoder;
+import com.ruuvi.station.gateway.Http;
 import com.ruuvi.station.model.HumidityCalibration;
 import com.ruuvi.station.model.RuuviTag;
+import com.ruuvi.station.model.TagSensorReading;
+import com.ruuvi.station.util.AlarmChecker;
+import com.ruuvi.station.util.Constants;
 import com.ruuvi.station.util.Utils;
 
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.RangeNotifier;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.beacon.utils.UrlBeaconUrlCompressor;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RuuviRangeNotifier implements RangeNotifier {
-
     private static final String TAG = "RuuviRangeNotifier";
-
     private String from;
     private Context context;
+    private Location tagLocation;
+
+    private Map<String, Long> lastLogged = null;
+    public boolean gatewayOn = false;
+    private FusedLocationProviderClient mFusedLocationClient;
+
     private long last = 0;
 
-    @Nullable
-    private BluetoothTagGateway.OnTagsFoundListener onTagsFoundListener;
-
-    public RuuviRangeNotifier(
-            Context context,
-            String from,
-            @Nullable BluetoothTagGateway.OnTagsFoundListener onTagsFoundListener
-    ) {
-        this.onTagsFoundListener = onTagsFoundListener;
+    public RuuviRangeNotifier(Context context, String from) {
         Log.d(TAG, "Setting up range notifier from " + from);
         this.context = context;
         this.from = from;
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+    }
+
+    private void updateLocation() {
+        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            mFusedLocationClient.getLastLocation().addOnSuccessListener(new OnSuccessListener<Location>() {
+                @Override
+                public void onSuccess(Location location) {
+                    tagLocation = location;
+                }
+            });
+        }
     }
 
     @Override
@@ -53,28 +74,26 @@ public class RuuviRangeNotifier implements RangeNotifier {
             return;
         }
         last = now;
-
-        final List<RuuviTag> allTags = new ArrayList<>();
-        final List<RuuviTag> tagsToSend = new ArrayList<>();
-
+        if (gatewayOn) updateLocation();
+        List<RuuviTag> tags = new ArrayList<>();
         Log.d(TAG, from + " " + " found " + beacons.size());
-
         foundBeacon: for (Beacon beacon : beacons) {
             // the same tag can appear multiple times
-            for (RuuviTag tag : tagsToSend) {
+            for (RuuviTag tag : tags) {
                 if (tag.id.equals(beacon.getBluetoothAddress())) continue foundBeacon;
             }
             RuuviTag tag = fromAltbeacon(context, beacon);
             if (tag != null) {
-                if (tag.favorite) tagsToSend.add(tag);
-                allTags.add(tag);
+                saveReading(tag);
+                if (tag.favorite) tags.add(tag);
             }
         }
+        if (tags.size() > 0 && gatewayOn) Http.post(tags, tagLocation, context);
 
-        if (onTagsFoundListener != null) {
-            onTagsFoundListener.onFoundTags(allTags);
-        }
+        TagSensorReading.removeOlderThan(24);
     }
+
+
 
     public static RuuviTag fromAltbeacon(Context context, Beacon beacon) {
         try {
@@ -125,5 +144,35 @@ public class RuuviRangeNotifier implements RangeNotifier {
             Log.e(TAG, "Failed to parse ruuviTag");
         }
         return null;
+    }
+
+    private void saveReading(RuuviTag ruuviTag) {
+        RuuviTag dbTag = RuuviTag.get(ruuviTag.id);
+        if (dbTag != null) {
+            ruuviTag = dbTag.preserveData(ruuviTag);
+            ruuviTag.update();
+            if (!dbTag.favorite) return;
+        } else {
+            ruuviTag.updateAt = new Date();
+            ruuviTag.save();
+            return;
+        }
+
+        if (lastLogged == null) lastLogged = new HashMap<>();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.SECOND, -Constants.DATA_LOG_INTERVAL);
+        long loggingThreshold = calendar.getTime().getTime();
+        for (Map.Entry<String, Long> entry : lastLogged.entrySet())
+        {
+            if (entry.getKey().equals(ruuviTag.id) && entry.getValue() > loggingThreshold) {
+                return;
+            }
+        }
+
+        lastLogged.put(ruuviTag.id, new Date().getTime());
+        TagSensorReading reading = new TagSensorReading(ruuviTag);
+        reading.save();
+        AlarmChecker.check(ruuviTag, context);
     }
 }

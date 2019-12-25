@@ -44,7 +44,7 @@ class RuuviScannerApplication : Application(), BeaconConsumer {
     private var region: Region? = null
     var running = false
     private var prefs: Preferences? = null
-    private var ruuviRangeNotifier: RuuviRangeNotifier? = null
+    private lateinit var ruuviRangeNotifier: RuuviRangeNotifier
     private var foreground = false
     var medic: BluetoothMedic? = null
     var me: com.ruuvi.station.RuuviScannerApplication? = null
@@ -114,7 +114,7 @@ class RuuviScannerApplication : Application(), BeaconConsumer {
             }
         }
         beaconManager!!.backgroundMode = true
-//            if (ruuviRangeNotifier != null) ruuviRangeNotifier.gatewayOn = true
+            if (ruuviRangeNotifier != null) ruuviRangeNotifier.gatewayOn = true
         if (medic == null) medic = Companion.setupMedic(applicationContext)
     }
 
@@ -146,11 +146,7 @@ class RuuviScannerApplication : Application(), BeaconConsumer {
         Log.d(TAG, "App class onCreate")
 //            FlowManager.init(applicationContext)
         prefs = Preferences(applicationContext)
-        ruuviRangeNotifier = RuuviRangeNotifier(applicationContext, "RuuviScannerApplication", object : BluetoothTagGateway.OnTagsFoundListener {
-            override fun onFoundTags(allTags: List<RuuviTag>) {
-                Log.e(TAG, "onFoundTags $allTags")
-            }
-        })
+        ruuviRangeNotifier = RuuviRangeNotifier(applicationContext, "RuuviScannerApplication")
         Foreground.init(this)
         Foreground.get().addListener(listener)
         Handler().postDelayed({
@@ -169,7 +165,7 @@ class RuuviScannerApplication : Application(), BeaconConsumer {
         override fun onBecameForeground() {
             Log.d(TAG, "onBecameForeground")
             startForegroundScanning()
-//                if (ruuviRangeNotifier != null) ruuviRangeNotifier.gatewayOn = false
+                if (ruuviRangeNotifier != null) ruuviRangeNotifier.gatewayOn = false
         }
 
         override fun onBecameBackground() {
@@ -189,14 +185,14 @@ class RuuviScannerApplication : Application(), BeaconConsumer {
                 disposeStuff()
                 su.startForegroundService()
             }
-//                if (ruuviRangeNotifier != null) ruuviRangeNotifier.gatewayOn = true
+                if (ruuviRangeNotifier != null) ruuviRangeNotifier.gatewayOn = true
         }
     }
 
     override fun onBeaconServiceConnect() {
         Log.d(TAG, "onBeaconServiceConnect")
         //Toast.makeText(getApplicationContext(), "Started scanning (Application)", Toast.LENGTH_SHORT).show();
-//            ruuviRangeNotifier.gatewayOn = !foreground
+            ruuviRangeNotifier.gatewayOn = !foreground
         if (!beaconManager!!.rangingNotifiers.contains(ruuviRangeNotifier)) {
             beaconManager!!.addRangeNotifier(ruuviRangeNotifier!!)
         }

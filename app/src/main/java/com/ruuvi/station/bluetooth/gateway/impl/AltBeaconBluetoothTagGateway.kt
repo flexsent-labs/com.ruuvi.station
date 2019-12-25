@@ -70,7 +70,8 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
 
             beaconManager?.bind(beaconConsumer)
 
-            ruuviRangeNotifier = RuuviRangeNotifier(application, "AltBeaconFGScannerService", onTagsFoundListener)
+            ruuviRangeNotifier = RuuviRangeNotifier(application, "AltBeaconFGScannerService")
+//            ruuviRangeNotifier = RuuviRangeNotifier(application, "AltBeaconFGScannerService", onTagsFoundListener)
 
             this.medic = setupMedic(application)
         } else if (!running) {
@@ -132,7 +133,8 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         Utils.setAltBeaconParsers(beaconManager)
         beaconManager?.backgroundScanPeriod = 5000
 
-        ruuviRangeNotifier = RuuviRangeNotifier(application, "AltBeaconFGScannerService", onTagsFoundListener)
+        ruuviRangeNotifier = RuuviRangeNotifier(application, "AltBeaconFGScannerService")
+//        ruuviRangeNotifier = RuuviRangeNotifier(application, "AltBeaconFGScannerService", onTagsFoundListener)
 
         beaconManager?.bind(beaconConsumer)
         medic = setupMedic(application)
