@@ -12,9 +12,9 @@ import com.ruuvi.station.bluetooth.gateway.factory.DefaultBluetoothTagGatewayFac
  */
 class RuuviScannerApplication : Application() {
 
-    val bluetoothRangeGatewayFactory: BluetoothTagGatewayFactory by lazy { DefaultBluetoothTagGatewayFactory(this) }
+    private val bluetoothRangeGatewayFactory: BluetoothTagGatewayFactory by lazy { DefaultBluetoothTagGatewayFactory(this) }
 
-    val bluetoothInteractor by lazy { BluetoothInteractor(this) }
+    val bluetoothInteractor by lazy { BluetoothInteractor(bluetoothRangeGatewayFactory) }
 
     fun startForegroundScanning() {
         bluetoothInteractor.startForegroundScanning()
