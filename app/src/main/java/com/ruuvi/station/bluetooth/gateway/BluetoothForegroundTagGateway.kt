@@ -8,7 +8,6 @@ import android.os.RemoteException
 import android.util.Log
 import com.ruuvi.station.bluetooth.gateway.listener.DefaultOnTagFoundListener
 import com.ruuvi.station.service.RuuviRangeNotifier
-import com.ruuvi.station.util.Foreground
 import com.ruuvi.station.util.Preferences
 import com.ruuvi.station.util.Utils
 import org.altbeacon.beacon.BeaconConsumer
@@ -18,21 +17,10 @@ import org.altbeacon.bluetooth.BluetoothMedic
 
 class BluetoothForegroundTagGateway(private val application: Application) {
 
+    private val region = Region("com.ruuvi.station.leRegion", null, null, null)
     private var beaconManager: BeaconManager? = null
-    private var region: Region? = null
     private var ruuviRangeNotifier: RuuviRangeNotifier? = null
     private var medic: BluetoothMedic? = null
-
-    private var foregroundListener: Foreground.Listener = object : Foreground.Listener {
-        override fun onBecameForeground() {
-            Utils.removeStateFile(application)
-            beaconManager?.backgroundMode = false
-        }
-
-        override fun onBecameBackground() {
-            setBackground()
-        }
-    }
 
     private val beaconConsumer = object : BeaconConsumer {
 
@@ -60,9 +48,7 @@ class BluetoothForegroundTagGateway(private val application: Application) {
                 }
             }
             try {
-                region?.let {
-                    beaconManager?.startRangingBeaconsInRegion(it)
-                }
+                beaconManager?.startRangingBeaconsInRegion(region)
             } catch (e: RemoteException) {
                 Log.e(TAG, "Could not start ranging")
             }
@@ -80,13 +66,10 @@ class BluetoothForegroundTagGateway(private val application: Application) {
             "AltBeaconFGScannerService",
             DefaultOnTagFoundListener(application)
         )
-        region = Region("com.ruuvi.station.leRegion", null, null, null)
         beaconManager?.setEnableScheduledScanJobs(false)
         beaconManager?.bind(beaconConsumer)
         medic = setupMedic(application)
 
-        Foreground.init(application)
-        Foreground.get().addListener(foregroundListener)
     }
 
     private fun setupMedic(context: Context): BluetoothMedic {
@@ -121,9 +104,7 @@ class BluetoothForegroundTagGateway(private val application: Application) {
             beaconManager?.removeRangeNotifier(it)
         }
         try {
-            region?.let {
-                beaconManager?.stopRangingBeaconsInRegion(it)
-            }
+            beaconManager?.stopRangingBeaconsInRegion(region)
         } catch (e: Exception) {
             Log.d(TAG, "Could not stop ranging region")
         }
@@ -131,7 +112,10 @@ class BluetoothForegroundTagGateway(private val application: Application) {
         beaconManager?.unbind(beaconConsumer)
         beaconManager = null
         ruuviRangeNotifier = null
-        if (foregroundListener != null) Foreground.get().removeListener(foregroundListener)
+    }
+
+    fun setBackgroundMode(isBackgroundModeEnabled: Boolean) {
+        beaconManager?.backgroundMode = false
     }
 
     companion object {

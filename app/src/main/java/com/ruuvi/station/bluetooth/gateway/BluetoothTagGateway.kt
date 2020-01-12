@@ -3,13 +3,13 @@ package com.ruuvi.station.bluetooth.gateway
 import com.ruuvi.station.model.RuuviTag
 
 interface BluetoothTagGateway {
+
     fun onAppCreated()
+
     fun startForegroundScanning()
-    fun runForegroundIfEnabled(): Boolean
+
     fun disposeStuff()
 
-    //    fun listenForTags(onTagsFoundListener: OnTagsFoundListener)
-//
     fun startBackgroundScanning(): Boolean
 
     fun stopScanning()

@@ -15,7 +15,9 @@ import com.ruuvi.station.R
 import com.ruuvi.station.RuuviScannerApplication
 import com.ruuvi.station.bluetooth.gateway.BluetoothForegroundTagGateway
 import com.ruuvi.station.feature.StartupActivity
+import com.ruuvi.station.util.Foreground
 import com.ruuvi.station.util.Preferences
+import com.ruuvi.station.util.Utils
 
 class AltBeaconScannerForegroundService : Service() {
 
@@ -25,12 +27,28 @@ class AltBeaconScannerForegroundService : Service() {
 
     private var notification: NotificationCompat.Builder? = null
 
+    private val foregroundListener: Foreground.Listener = object : Foreground.Listener {
+        override fun onBecameForeground() {
+            Utils.removeStateFile(application)
+           bluetoothForegroundTagGateway.setBackgroundMode(false)
+        }
+
+        override fun onBecameBackground() {
+            setBackground()
+        }
+    }
+
     override fun onBind(intent: Intent): IBinder? {
         return null
     }
 
+
     override fun onCreate() {
         super.onCreate()
+
+        Foreground.init(application)
+        Foreground.get().addListener(foregroundListener)
+
         bluetoothForegroundTagGateway.initOnServiceCreate()
 
         Log.d(TAG, "Starting foreground service")
@@ -49,9 +67,10 @@ class AltBeaconScannerForegroundService : Service() {
 
         bluetoothForegroundTagGateway.onServiceDestroy()
 
-
         stopForeground(true)
         (application as RuuviScannerApplication).startBackgroundScanning()
+
+        Foreground.get().removeListener(foregroundListener)
     }
 
     private fun setupNotification(): NotificationCompat.Builder? {

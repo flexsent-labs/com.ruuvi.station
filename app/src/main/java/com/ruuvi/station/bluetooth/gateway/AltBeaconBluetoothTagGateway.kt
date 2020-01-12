@@ -21,15 +21,12 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
     private val TAG = AltBeaconBluetoothTagGateway::class.java.simpleName
 
     private var prefs = Preferences(application)
-
-    // NEW REFACTORING --------------
-
     private var beaconManager: BeaconManager? = null
-    private var region: Region? = null
-    var running = false
+    private var region = Region("com.ruuvi.station.leRegion", null, null, null)
+    private var running = false
     private var ruuviRangeNotifier: RuuviRangeNotifier? = null
     private var foreground = false
-    var medic: BluetoothMedic? = null
+    private var medic: BluetoothMedic? = null
 
     private val beaconConsumer = object : BeaconConsumer {
 
@@ -54,9 +51,7 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
             }
             running = true
             try {
-                region?.let {
-                    beaconManager?.startRangingBeaconsInRegion(it)
-                }
+                beaconManager?.startRangingBeaconsInRegion(region)
             } catch (e: Exception) {
                 Log.e(TAG, "Could not start ranging")
             }
@@ -88,9 +83,7 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
             beaconManager?.removeRangeNotifier(it)
         }
         try {
-            region?.let {
-                beaconManager?.stopRangingBeaconsInRegion(it)
-            }
+            beaconManager?.stopRangingBeaconsInRegion(region)
         } catch (e: Exception) {
             Log.d(TAG, "Could not remove ranging region")
         }
@@ -98,7 +91,7 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         beaconManager = null
     }
 
-    override fun runForegroundIfEnabled(): Boolean {
+    private fun runForegroundIfEnabled(): Boolean {
         if (prefs.backgroundScanMode === BackgroundScanModes.FOREGROUND) {
             val su = ServiceUtils(this.application)
             disposeStuff()
@@ -154,9 +147,7 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         } else if (!running) {
             running = true
             try {
-                region?.let {
-                    beaconManager?.startRangingBeaconsInRegion(it)
-                }
+                beaconManager?.startRangingBeaconsInRegion(region)
             } catch (e: Exception) {
                 Log.d(TAG, "Could not start ranging again")
             }
@@ -170,8 +161,6 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
             "BluetoothInteractor",
             DefaultOnTagFoundListener(application)
         )
-
-        region = Region("com.ruuvi.station.leRegion", null, null, null)
     }
 
     private fun setupMedic(context: Context?): BluetoothMedic {
