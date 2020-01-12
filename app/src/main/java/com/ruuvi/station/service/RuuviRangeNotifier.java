@@ -97,7 +97,9 @@ public class RuuviRangeNotifier implements RangeNotifier {
             }
         }
 
-        onTagsFoundListener.onFoundTags(allTags);
+        if (onTagsFoundListener != null) {
+            onTagsFoundListener.onFoundTags(allTags);
+        }
 //
 //        for (RuuviTag tag : favoriteTags) {
 //            saveReading(tag);

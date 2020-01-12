@@ -34,6 +34,8 @@ import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.bluetooth.BluetoothMedic;
 
+import kotlin.jvm.JvmStatic;
+
 
 public class AltBeaconScannerForegroundService extends Service implements BeaconConsumer {
     private static final String TAG = "AScannerFgService";
@@ -68,8 +70,15 @@ public class AltBeaconScannerForegroundService extends Service implements Beacon
         region = new Region("com.ruuvi.station.leRegion", null, null, null);
         startFG();
         beaconManager.bind(this);
-        medic = RuuviScannerApplication.setupMedic(getApplicationContext());
+        medic = setupMedic(getApplicationContext());
         setBackground(); // start in background mode
+    }
+
+    private BluetoothMedic setupMedic(Context context) {
+        BluetoothMedic medic = BluetoothMedic.getInstance();
+        medic.enablePowerCycleOnFailures(context);
+        medic.enablePeriodicTests(context, BluetoothMedic.SCAN_TEST);
+        return medic;
     }
 
     private NotificationCompat.Builder setupNotification() {
