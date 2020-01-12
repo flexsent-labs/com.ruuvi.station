@@ -91,7 +91,6 @@ public class RuuviRangeNotifier implements RangeNotifier {
             }
             RuuviTag tag = LeScanResult.fromAltbeacon(context, beacon);
             if (tag != null) {
-//                saveReading(tag);
                 allTags.add(tag);
                 if (tag.favorite) favoriteTags.add(tag);
             }
@@ -100,14 +99,6 @@ public class RuuviRangeNotifier implements RangeNotifier {
         if (onTagsFoundListener != null) {
             onTagsFoundListener.onFoundTags(allTags);
         }
-//
-//        for (RuuviTag tag : favoriteTags) {
-//            saveReading(tag);
-//        }
-//
-//        if (favoriteTags.size() > 0 && gatewayOn) Http.post(favoriteTags, tagLocation, context);
-//
-//        TagSensorReading.removeOlderThan(24);
     }
 
     private void saveReading(RuuviTag ruuviTag) {
