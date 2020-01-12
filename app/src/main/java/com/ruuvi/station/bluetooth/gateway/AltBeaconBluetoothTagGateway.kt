@@ -4,10 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.location.Location
 import android.util.Log
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
 import com.ruuvi.station.bluetooth.gateway.listener.DefaultOnTagFoundListener
 import com.ruuvi.station.service.RuuviRangeNotifier
 import com.ruuvi.station.util.BackgroundScanModes
@@ -18,21 +15,12 @@ import org.altbeacon.beacon.BeaconConsumer
 import org.altbeacon.beacon.BeaconManager
 import org.altbeacon.beacon.Region
 import org.altbeacon.bluetooth.BluetoothMedic
-import java.util.HashMap
 
 class AltBeaconBluetoothTagGateway(private val application: Application) : BluetoothTagGateway {
 
     private val TAG = AltBeaconBluetoothTagGateway::class.java.simpleName
 
     private var prefs = Preferences(application)
-
-    private var tagLocation: Location? = null
-
-    private var lastLogged: MutableMap<String, Long> = HashMap()
-
-    private val fusedLocationClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this.application)
-
-    private var gatewayOn: Boolean = false
 
     // NEW REFACTORING --------------
 
@@ -58,13 +46,17 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         override fun onBeaconServiceConnect() {
             Log.d(TAG, "onBeaconServiceConnect")
             //Toast.makeText(getApplicationContext(), "Started scanning (Application)", Toast.LENGTH_SHORT).show();
-            ruuviRangeNotifier!!.isGatewayOn = !foreground
-            if (!beaconManager!!.rangingNotifiers.contains(ruuviRangeNotifier)) {
-                beaconManager!!.addRangeNotifier(ruuviRangeNotifier!!)
+            RuuviRangeNotifier.gatewayOn = !foreground
+            if (!(beaconManager?.rangingNotifiers?.contains(ruuviRangeNotifier) == true)) {
+                ruuviRangeNotifier?.let {
+                    beaconManager?.addRangeNotifier(it)
+                }
             }
             running = true
             try {
-                beaconManager!!.startRangingBeaconsInRegion(region!!)
+                region?.let {
+                    beaconManager?.startRangingBeaconsInRegion(it)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Could not start ranging")
             }
@@ -75,7 +67,9 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         Log.d(TAG, "Stopping scanning")
         running = false
         try {
-            beaconManager!!.stopRangingBeaconsInRegion(region!!)
+            region?.let {
+                beaconManager?.stopRangingBeaconsInRegion(it)
+            }
         } catch (e: Exception) {
             Log.d(TAG, "Could not remove ranging region")
         }
@@ -90,13 +84,17 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         medic = null
         if (beaconManager == null) return
         running = false
-        beaconManager!!.removeRangeNotifier(ruuviRangeNotifier!!)
+        ruuviRangeNotifier?.let {
+            beaconManager?.removeRangeNotifier(it)
+        }
         try {
-            beaconManager!!.stopRangingBeaconsInRegion(region!!)
+            region?.let {
+                beaconManager?.stopRangingBeaconsInRegion(it)
+            }
         } catch (e: Exception) {
             Log.d(TAG, "Could not remove ranging region")
         }
-        beaconManager!!.unbind(beaconConsumer)
+        beaconManager?.unbind(beaconConsumer)
         beaconManager = null
     }
 
@@ -117,9 +115,9 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
 
         Utils.removeStateFile(application)
         Log.d(TAG, "Starting foreground scanning")
-        bindBeaconManager(beaconConsumer, application)
-        beaconManager!!.backgroundMode = false
-        if (ruuviRangeNotifier != null) ruuviRangeNotifier!!.isGatewayOn = false
+        bindBeaconManager()
+        beaconManager?.backgroundMode = false
+        if (ruuviRangeNotifier != null) ruuviRangeNotifier?.isGatewayOn = false
     }
 
     override fun startBackgroundScanning(): Boolean {
@@ -129,34 +127,36 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
             Log.d(TAG, "Background scanning is not enabled, ignoring")
             return false
         }
-        bindBeaconManager(beaconConsumer, application)
+        bindBeaconManager()
         var scanInterval = Preferences(application).backgroundScanInterval * 1000
         val minInterval = 15 * 60 * 1000
         if (scanInterval < minInterval) scanInterval = minInterval
-        if (scanInterval.toLong() != beaconManager!!.backgroundBetweenScanPeriod) {
-            beaconManager!!.backgroundBetweenScanPeriod = scanInterval.toLong()
+        if (scanInterval.toLong() != beaconManager?.backgroundBetweenScanPeriod) {
+            beaconManager?.backgroundBetweenScanPeriod = scanInterval.toLong()
             try {
-                beaconManager!!.updateScanPeriods()
+                beaconManager?.updateScanPeriods()
             } catch (e: Exception) {
                 Log.e(TAG, "Could not update scan intervals")
             }
         }
-        beaconManager!!.backgroundMode = true
-        if (ruuviRangeNotifier != null) ruuviRangeNotifier!!.isGatewayOn = true
+        beaconManager?.backgroundMode = true
+        if (ruuviRangeNotifier != null) ruuviRangeNotifier?.isGatewayOn = true
         if (medic == null) medic = setupMedic(application)
         return true
     }
 
-    private fun bindBeaconManager(consumer: BeaconConsumer?, context: Context) {
+    private fun bindBeaconManager() {
         if (beaconManager == null) {
-            beaconManager = BeaconManager.getInstanceForApplication(context.applicationContext)
+            beaconManager = BeaconManager.getInstanceForApplication(application)
             Utils.setAltBeaconParsers(beaconManager)
-            beaconManager!!.backgroundScanPeriod = 5000
-            beaconManager!!.bind(consumer!!)
+            beaconManager?.backgroundScanPeriod = 5000
+            beaconManager?.bind(beaconConsumer)
         } else if (!running) {
             running = true
             try {
-                beaconManager!!.startRangingBeaconsInRegion(region!!)
+                region?.let {
+                    beaconManager?.startRangingBeaconsInRegion(it)
+                }
             } catch (e: Exception) {
                 Log.d(TAG, "Could not start ranging again")
             }

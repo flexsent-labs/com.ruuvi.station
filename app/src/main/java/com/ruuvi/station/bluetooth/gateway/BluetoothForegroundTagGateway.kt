@@ -23,6 +23,17 @@ class BluetoothForegroundTagGateway(private val application: Application) {
     private var ruuviRangeNotifier: RuuviRangeNotifier? = null
     private var medic: BluetoothMedic? = null
 
+    private var foregroundListener: Foreground.Listener = object : Foreground.Listener {
+        override fun onBecameForeground() {
+            Utils.removeStateFile(application)
+            beaconManager?.backgroundMode = false
+        }
+
+        override fun onBecameBackground() {
+            setBackground()
+        }
+    }
+
     private val beaconConsumer = object : BeaconConsumer {
 
         override fun getApplicationContext(): Context = application
@@ -59,11 +70,11 @@ class BluetoothForegroundTagGateway(private val application: Application) {
     }
 
     fun initOnServiceCreate() {
+
         beaconManager = BeaconManager.getInstanceForApplication(application)
         Utils.setAltBeaconParsers(beaconManager)
         beaconManager?.backgroundScanPeriod = 5000
-        Foreground.init(application)
-        Foreground.get().addListener(listener)
+
         ruuviRangeNotifier = RuuviRangeNotifier(
             application,
             "AltBeaconFGScannerService",
@@ -73,6 +84,9 @@ class BluetoothForegroundTagGateway(private val application: Application) {
         beaconManager?.setEnableScheduledScanJobs(false)
         beaconManager?.bind(beaconConsumer)
         medic = setupMedic(application)
+
+        Foreground.init(application)
+        Foreground.get().addListener(foregroundListener)
     }
 
     private fun setupMedic(context: Context): BluetoothMedic {
@@ -101,17 +115,6 @@ class BluetoothForegroundTagGateway(private val application: Application) {
         return scanInterval.toLong() != beaconManager?.backgroundBetweenScanPeriod
     }
 
-    var listener: Foreground.Listener? = object : Foreground.Listener {
-        override fun onBecameForeground() {
-            Utils.removeStateFile(application)
-            beaconManager?.backgroundMode = false
-        }
-
-        override fun onBecameBackground() {
-            setBackground()
-        }
-    }
-
     fun onServiceDestroy() {
         Log.d(TAG, "onDestroy =======")
         ruuviRangeNotifier?.let {
@@ -128,7 +131,7 @@ class BluetoothForegroundTagGateway(private val application: Application) {
         beaconManager?.unbind(beaconConsumer)
         beaconManager = null
         ruuviRangeNotifier = null
-        if (listener != null) Foreground.get().removeListener(listener)
+        if (foregroundListener != null) Foreground.get().removeListener(foregroundListener)
     }
 
     companion object {
