@@ -13,6 +13,8 @@ interface BluetoothTagGateway {
     fun startBackgroundScanning(): Boolean
 
     fun stopScanning()
+
+    fun setGatewayOn(isGatewayOn: Boolean)
 //
 //    /**
 //     * Reset the bluetooth services

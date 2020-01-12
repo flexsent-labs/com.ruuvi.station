@@ -14,7 +14,7 @@ class RuuviScannerApplication : Application() {
 
     private val bluetoothRangeGatewayFactory: BluetoothTagGatewayFactory by lazy { DefaultBluetoothTagGatewayFactory(this) }
 
-    val bluetoothInteractor by lazy { BluetoothInteractor(bluetoothRangeGatewayFactory) }
+    val bluetoothInteractor by lazy { BluetoothInteractor(this, bluetoothRangeGatewayFactory) }
 
     fun startForegroundScanning() {
         bluetoothInteractor.startForegroundScanning()

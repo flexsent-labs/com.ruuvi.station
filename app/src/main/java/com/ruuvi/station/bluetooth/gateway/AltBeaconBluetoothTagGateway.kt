@@ -1,20 +1,16 @@
-package com.ruuvi.station.bluetooth.gateway.impl
+package com.ruuvi.station.bluetooth.gateway
 
 import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.location.Location
-import android.os.Handler
 import android.util.Log
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.ruuvi.station.bluetooth.gateway.BluetoothTagGateway
 import com.ruuvi.station.bluetooth.gateway.listener.DefaultOnTagFoundListener
-import com.ruuvi.station.service.AltBeaconScannerForegroundService
 import com.ruuvi.station.service.RuuviRangeNotifier
 import com.ruuvi.station.util.BackgroundScanModes
-import com.ruuvi.station.util.Foreground
 import com.ruuvi.station.util.Preferences
 import com.ruuvi.station.util.ServiceUtils
 import com.ruuvi.station.util.Utils
@@ -28,7 +24,7 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
 
     private val TAG = AltBeaconBluetoothTagGateway::class.java.simpleName
 
-    private var prefs: Preferences? = null
+    private var prefs = Preferences(application)
 
     private var tagLocation: Location? = null
 
@@ -85,6 +81,10 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         }
     }
 
+    override fun setGatewayOn(isGatewayOn: Boolean) {
+        ruuviRangeNotifier?.isGatewayOn = isGatewayOn
+    }
+
     override fun disposeStuff() {
         Log.d(TAG, "Stopping scanning")
         medic = null
@@ -101,7 +101,7 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
     }
 
     override fun runForegroundIfEnabled(): Boolean {
-        if (prefs!!.backgroundScanMode === BackgroundScanModes.FOREGROUND) {
+        if (prefs.backgroundScanMode === BackgroundScanModes.FOREGROUND) {
             val su = ServiceUtils(this.application)
             disposeStuff()
             su.startForegroundService()
@@ -125,7 +125,7 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
     override fun startBackgroundScanning(): Boolean {
         Log.d(TAG, "Starting background scanning")
         if (runForegroundIfEnabled()) return false
-        if (prefs!!.backgroundScanMode !== BackgroundScanModes.BACKGROUND) {
+        if (prefs.backgroundScanMode !== BackgroundScanModes.BACKGROUND) {
             Log.d(TAG, "Background scanning is not enabled, ignoring")
             return false
         }
@@ -165,54 +165,11 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
 
     override fun onAppCreated() {
 
-        prefs = Preferences(application)
         ruuviRangeNotifier = RuuviRangeNotifier(
             application,
             "BluetoothInteractor",
             DefaultOnTagFoundListener(application)
         )
-//
-        Foreground.init(application)
-
-        val listener: Foreground.Listener = object : Foreground.Listener {
-            override fun onBecameForeground() {
-                Log.d(TAG, "onBecameForeground")
-                startForegroundScanning()
-                if (ruuviRangeNotifier != null) ruuviRangeNotifier!!.isGatewayOn = false
-            }
-
-            override fun onBecameBackground() {
-                Log.d(TAG, "onBecameBackground")
-                foreground = false
-                val su = ServiceUtils(application)
-                if (prefs!!.backgroundScanMode === BackgroundScanModes.DISABLED) { // background scanning is disabled so all scanning things will be killed
-                    stopScanning()
-                    su.stopForegroundService()
-                } else if (prefs!!.backgroundScanMode === BackgroundScanModes.BACKGROUND) {
-                    if (su.isRunning(AltBeaconScannerForegroundService::class.java)) {
-                        su.stopForegroundService()
-                    } else {
-                        startBackgroundScanning()
-                    }
-                } else {
-                    disposeStuff()
-                    su.startForegroundService()
-                }
-                if (ruuviRangeNotifier != null) ruuviRangeNotifier!!.isGatewayOn = true
-            }
-        }
-
-        Foreground.get().addListener(listener)
-
-        Handler().postDelayed({
-            if (!foreground) {
-                if (prefs!!.backgroundScanMode === BackgroundScanModes.FOREGROUND) {
-                    ServiceUtils(application).startForegroundService()
-                } else if (prefs!!.backgroundScanMode === BackgroundScanModes.BACKGROUND) {
-                    startBackgroundScanning()
-                }
-            }
-        }, 5000)
 
         region = Region("com.ruuvi.station.leRegion", null, null, null)
     }
@@ -223,9 +180,4 @@ class AltBeaconBluetoothTagGateway(private val application: Application) : Bluet
         medic.enablePeriodicTests(context, BluetoothMedic.SCAN_TEST)
         return medic
     }
-
-    companion object {
-        var foreground = false
-    }
-
 }
