@@ -29,13 +29,14 @@ import java.util.List;
 import java.util.Map;
 
 public class RuuviRangeNotifier implements RangeNotifier {
+
     private static final String TAG = "RuuviRangeNotifier";
+
+    public static Location tagLocation;
+    public static boolean gatewayOn = false;
     private String from;
     private Context context;
-    public static Location tagLocation;
-
     private Map<String, Long> lastLogged = null;
-    public static boolean gatewayOn = false;
     private FusedLocationProviderClient mFusedLocationClient;
 
     private long last = 0;
@@ -58,7 +59,7 @@ public class RuuviRangeNotifier implements RangeNotifier {
     }
 
     public void setGatewayOn(boolean gatewayOn) {
-        this.gatewayOn = gatewayOn;
+        RuuviRangeNotifier.gatewayOn = gatewayOn;
     }
 
     private void updateLocation() {
@@ -84,7 +85,8 @@ public class RuuviRangeNotifier implements RangeNotifier {
         List<RuuviTag> favoriteTags = new ArrayList<>();
         List<RuuviTag> allTags = new ArrayList<>();
         Log.d(TAG, from + " " + " found " + beacons.size());
-        foundBeacon: for (Beacon beacon : beacons) {
+        foundBeacon:
+        for (Beacon beacon : beacons) {
             // the same tag can appear multiple times
             for (RuuviTag tag : favoriteTags) {
                 if (tag.id.equals(beacon.getBluetoothAddress())) continue foundBeacon;
@@ -118,8 +120,7 @@ public class RuuviRangeNotifier implements RangeNotifier {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.SECOND, -Constants.DATA_LOG_INTERVAL);
         long loggingThreshold = calendar.getTime().getTime();
-        for (Map.Entry<String, Long> entry : lastLogged.entrySet())
-        {
+        for (Map.Entry<String, Long> entry : lastLogged.entrySet()) {
             if (entry.getKey().equals(ruuviTag.id) && entry.getValue() > loggingThreshold) {
                 return;
             }
